@@ -12,6 +12,11 @@ public class GamesController {
 
     @RequestMapping("/gobang")
     public String goBang() {
+        return "games/gobangLobby";
+    }
+
+    @RequestMapping("/gobanggame")
+    public String goBangRoom() {
         return "games/gobang";
     }
 }
