@@ -75,6 +75,88 @@
                 "position: absolute; top: " + (20 + (pos.width()/colLength) * point.y) +
                 "px; left: " + (20 + (pos.width()/colLength) * point.x) + "px;'></div>")
         }
+        let webSocket = null;
+        //浏览器是否支持websocket
+        if ("WebSocket" in window) {
+            console.log("WebSockets supported");
+            webSocket = new WebSocket("ws://localhost:8080/hiramgames");
+            webSocket.onopen = function (data) {
+                console.log("Connect success ");
+                let redata = {}
+                redata.requireType = "getRooms"
+                sendMessage(redata)
+            };
+            webSocket.onmessage = function (data) {
+                let dataJ = JSON.parse(data.data)
+                console.log(dataJ)
+                let rooms = $("#rooms");
+                switch (dataJ.requireType) {
+                    case "newRoom":
+                        console.log("newRoom result")
+                        rooms.empty();
+                        for (let i = 0; i < dataJ.rooms.length; i++) {
+                            let roomHtml = "<div style='width: 100px; height: 100px; background-color: #0094ff; margin: 10px; float: left;'>"
+                            roomHtml += "<div style='height: 50px; width: 100px'><a th:href='@{/games/gobanggame}' href='gobang.html'>" + dataJ.rooms[i].name + "</a></div>";
+                            roomHtml += "<div style='height: 50px; width: 100px'>";
+                            roomHtml += dataJ.rooms[i].members[0]
+                            if (dataJ.rooms[i].members.length>1) {
+                                roomHtml += " VS " + dataJ.rooms[i].members[1]
+                            }
+                            roomHtml += "</div>"
+                            roomHtml += "</div>"
+                            rooms.append(roomHtml)
+                        }
+                        rooms.append("<div style='clear: both;'></div>")
+                        break;
+                    case "getRooms":
+                        console.log("getRooms result")
+                        rooms.empty();
+                        for (let i = 0; i < dataJ.rooms.length; i++) {
+                            let roomHtml = "<div style='width: 100px; height: 100px; background-color: #0094ff; margin: 10px; float: left;'>"
+                            roomHtml += "<div style='height: 50px; width: 100px'><a th:href='@{/games/gobanggame}' href='gobang.html'>" + dataJ.rooms[i].name + "</a></div>";
+                            roomHtml += "<div style='height: 50px; width: 100px'>";
+                            roomHtml += dataJ.rooms[i].members[0]
+                            if (dataJ.rooms[i].members.length>1) {
+                                roomHtml += " VS " + dataJ.rooms[i].members[1]
+                            }
+                            roomHtml += "</div>"
+                            roomHtml += "</div>"
+                            rooms.append(roomHtml)
+                        }
+                        rooms.append("<div style='clear: both;'></div>")
+                        break;
+                    default:
+                        console.log(dataJ)
+                }
+            };
+            webSocket.onerror = function (e) {
+                console.log('Connect error ');
+            };
+            webSocket.onclose = function (data) {
+            };
+            window.onbeforeunload = function () {
+                // webSocket.close();
+            }
+        } else {
+            console.log("WebSockets not supported");
+        }
+
+        $("#newRoom").bind("click", function () {
+            let data = {}
+            data.requireType = "newRoom"
+            sendMessage(data)
+        })
+
+        function sendMessage(dataJ) {
+            console.log('Will send: ' + JSON.stringify(dataJ))
+            webSocket.send(JSON.stringify(dataJ));
+        }
+
+        $('.close').click(function () {
+            if (webSocket != null) {
+                webSocket.close();
+            }
+        });
     });
 </script>
 </body>

@@ -26,7 +26,7 @@ public class HiramGamesWebSocket {
     private static CopyOnWriteArraySet<HiramGamesWebSocket> webSocketSet = new CopyOnWriteArraySet<>();
     private Session session;
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-    private static Map<String, List<String>> rooms = new LinkedHashMap<>();
+    public static Map<String, List<String>> rooms = new LinkedHashMap<>();
 
     @OnOpen
     public void onOpen(Session session) {

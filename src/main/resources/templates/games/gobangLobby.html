@@ -3,88 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <title>五子棋大厅</title>
+    <style>
+        div {
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
 <h1>五子棋大厅</h1>
+<div id="player"></div>
 <button id="newRoom">newRoom</button>
-<div id="rooms"></div>
+<div id="rooms">
+    <div style="width: 100px; height: 100px; background-color: #0094ff; float: left; margin: 10px;" th:each="room:${rooms}">
+        <div style="width: 100px; height: 50px"><a href="gobang.html" th:href="@{'/games/gobanggame&roomName=' + ${room.getString('name')} + '&player=' + player}" th:text="${room.getString('name')} + '\'s Room'"></a></div>
+        <div style="width: 100px; height: 50px" th:text="${room.getJSONArray('members').get(0)} + ${room.getJSONArray('members').size()<=1?'':' vs '+room.getJSONArray('members').get(1)}"></div>
+    </div>
+</div>
 <script src="./../../static/js/jquery.min.js" th:src="@{/js/jquery.min.js}"></script>
 <script>
     $(function () {
-        let webSocket = null;
-        //浏览器是否支持websocket
-        if ("WebSocket" in window) {
-            console.log("WebSockets supported");
-            webSocket = new WebSocket("ws://localhost:8080/hiramgames");
-            webSocket.onopen = function (data) {
-                console.log("Connect success ");
-                let redata = {}
-                redata.requireType = "getRooms"
-                sendMessage(redata)
-            };
-            webSocket.onmessage = function (data) {
-                let dataJ = JSON.parse(data.data)
-                console.log(dataJ)
-                let rooms = $("#rooms");
-                switch (dataJ.requireType) {
-                    case "newRoom":
-                        console.log("newRoom result")
-                        rooms.empty();
-                        for (let i = 0; i < dataJ.rooms.length; i++) {
-                            let roomHtml = "<div style='width: 100px; height: 100px; background-color: #0094ff; margin: 10px; float: left;'>"
-                            roomHtml += "<div style='height: 50px; width: 100px'>" + dataJ.rooms[i].name + "</div>";
-                            roomHtml += "<div style='height: 50px; width: 100px'>";
-                            roomHtml += dataJ.rooms[i].members[0]
-                            if (dataJ.rooms[i].members.length>1) {
-                                roomHtml += " VS " + dataJ.rooms[i].members[1]
-                            }
-                            roomHtml += "</div>"
-                            roomHtml += "</div>"
-                            rooms.append(roomHtml)
-                        }
-                        rooms.append("<div style='clear: both;'></div>")
-                        break;
-                    case "getRooms":
-                        console.log("getRooms result")
-                        rooms.empty();
-                        for (let i = 0; i < dataJ.rooms.length; i++) {
-                            rooms.append("<div style='width: 100px; height: 100px; background-color: #0094ff; margin: 10px; float: left;'>" + dataJ.rooms[i].name + "</div>")
-                        }
-                        rooms.append("<div style='clear: both;'></div>")
-                        break;
-                    default:
-                        console.log(dataJ)
-                }
-            };
-            webSocket.onerror = function (e) {
-                console.log('Connect error ');
-            };
-            webSocket.onclose = function (data) {
-            };
-            window.onbeforeunload = function () {
-                // webSocket.close();
-            }
-        } else {
-            console.log("WebSockets not supported");
-        }
-
+        let player = 'player_' + new Date().getTime().toString().substr(7)
+        $("#player").append("<span>" + player + "</span>")
         $("#newRoom").bind("click", function () {
-            let data = {}
-            data.requireType = "newRoom"
-            sendMessage(data)
+            $.ajax({url:"/games/gobanggamenew?player=" + player,async:false, success: function (res) {
+                console.log(res)
+                    let rooms = $("#rooms")
+                    rooms.empty();
+                    let roomsHtml = '';
+                    for (let i = 0; i < res.length; i++) {
+                        roomsHtml += "<div style='width: 100px; height: 100px; background-color: #0094ff; float: left; margin: 10px;'>"
+                        roomsHtml += "<div style='width: 100px; height: 50px;'>" +
+                            "<a href='/games/gobanggame?roomName=" + res[i].name + "&player=" + player + "'>" + res[i].name + "'s Room</a>" +
+                            "</div>"
+                        roomsHtml += "<div style='width: 100px; height: 50px;'>" + res[i].members[0]
+                        if (res[i].members[1]) {
+                            roomsHtml += " VS " + res[i].members[1]
+                        }
+                        roomsHtml += "</div>"
+                        roomsHtml += "</div>"
+                    }
+                    rooms.append(roomsHtml)
+                }})
         })
-
-        function sendMessage(dataJ) {
-            console.log('Will send: ' + JSON.stringify(dataJ))
-            webSocket.send(JSON.stringify(dataJ));
-        }
-
-        $('.close').click(function () {
-            if (webSocket != null) {
-                webSocket.close();
-            }
-        });
-
+        // let webSocket = null;
+        // //浏览器是否支持websocket
+        // if ("WebSocket" in window) {
+        //     console.log("WebSockets supported");
+        //     webSocket = new WebSocket("ws://localhost:8080/hiramgames");
+        //     webSocket.onopen = function (data) {
+        //         console.log("Connect success ");
+        //         let redata = {}
+        //         redata.requireType = "getRooms"
+        //         sendMessage(redata)
+        //     };
+        //     webSocket.onmessage = function (data) {
+        //         let dataJ = JSON.parse(data.data)
+        //         console.log(dataJ)
+        //         let rooms = $("#rooms");
+        //         switch (dataJ.requireType) {
+        //             case "newRoom":
+        //                 console.log("newRoom result")
+        //                 rooms.empty();
+        //                 for (let i = 0; i < dataJ.rooms.length; i++) {
+        //                     let roomHtml = "<div style='width: 100px; height: 100px; background-color: #0094ff; margin: 10px; float: left;'>"
+        //                     roomHtml += "<div style='height: 50px; width: 100px'><a th:href='@{/games/gobanggame}' href='gobang.html'>" + dataJ.rooms[i].name + "</a></div>";
+        //                     roomHtml += "<div style='height: 50px; width: 100px'>";
+        //                     roomHtml += dataJ.rooms[i].members[0]
+        //                     if (dataJ.rooms[i].members.length>1) {
+        //                         roomHtml += " VS " + dataJ.rooms[i].members[1]
+        //                     }
+        //                     roomHtml += "</div>"
+        //                     roomHtml += "</div>"
+        //                     rooms.append(roomHtml)
+        //                 }
+        //                 rooms.append("<div style='clear: both;'></div>")
+        //                 break;
+        //             case "getRooms":
+        //                 console.log("getRooms result")
+        //                 rooms.empty();
+        //                 for (let i = 0; i < dataJ.rooms.length; i++) {
+        //                     let roomHtml = "<div style='width: 100px; height: 100px; background-color: #0094ff; margin: 10px; float: left;'>"
+        //                     roomHtml += "<div style='height: 50px; width: 100px'><a th:href='@{/games/gobanggame}' href='gobang.html'>" + dataJ.rooms[i].name + "</a></div>";
+        //                     roomHtml += "<div style='height: 50px; width: 100px'>";
+        //                     roomHtml += dataJ.rooms[i].members[0]
+        //                     if (dataJ.rooms[i].members.length>1) {
+        //                         roomHtml += " VS " + dataJ.rooms[i].members[1]
+        //                     }
+        //                     roomHtml += "</div>"
+        //                     roomHtml += "</div>"
+        //                     rooms.append(roomHtml)
+        //                 }
+        //                 rooms.append("<div style='clear: both;'></div>")
+        //                 break;
+        //             default:
+        //                 console.log(dataJ)
+        //         }
+        //     };
+        //     webSocket.onerror = function (e) {
+        //         console.log('Connect error ');
+        //     };
+        //     webSocket.onclose = function (data) {
+        //     };
+        //     window.onbeforeunload = function () {
+        //         // webSocket.close();
+        //     }
+        // } else {
+        //     console.log("WebSockets not supported");
+        // }
+        //
+        // $("#newRoom").bind("click", function () {
+        //     let data = {}
+        //     data.requireType = "newRoom"
+        //     sendMessage(data)
+        // })
+        //
+        // function sendMessage(dataJ) {
+        //     console.log('Will send: ' + JSON.stringify(dataJ))
+        //     webSocket.send(JSON.stringify(dataJ));
+        // }
+        //
+        // $('.close').click(function () {
+        //     if (webSocket != null) {
+        //         webSocket.close();
+        //     }
+        // });
     });
 </script>
 </body>
