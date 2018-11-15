@@ -1,26 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
     <style>
         table,table tr th, table tr td { border:1px solid #0094ff; }
-        table { width: 400px; height: 400px; border-collapse: collapse; margin: auto;}
+        table { width: 420px; height: 420px; border-collapse: collapse; margin: auto;}
     </style>
 </head>
 <body style="padding: 0; margin: 0;">
-    <div id="pan" style="position: relative; background-color: #f5f5dc; width: 440px; height: 440px; margin: auto;">
+    <div id="pan" style="position: relative; background-color: #f5f5dc; width: 460px; height: 460px; margin: auto;">
         <div id="points" style="position: absolute; top: 0; left: 0;"></div>
-        <div id="realBoard" style="position: absolute; top: 0; left: 0; z-index: 999; width: 440px; height: 440px;"></div>
+        <div id="realBoard" style="position: absolute; top: 0; left: 0; z-index: 999; width: 460px; height: 460px;"></div>
     </div>
     <button id="ohNo">悔棋</button>
-    <script src="../../static/js/jquery.min.js"></script>
+    <script src="./../../static/js/jquery.min.js" th:src="@{/js/jquery.min.js}"></script>
 <script>
     $(function () {
-        let rowsLength=10;  //行
-        let colLength=10;   //列
+        // 画棋盘
+        let rowsLength=14;  //行
+        let colLength=14;   //列
         let tableHtml = "";
-        tableHtml += "<table id='board' border='1' style='position: absolute; left: 20px; top: 20px;'>";
+        tableHtml += "<table id='board' border='1' cellspacing='0' cellpadding='0' style='position: absolute; left: 20px; top: 20px;'>";
         for (let i = 0; i < rowsLength; i++) {
             tableHtml += "<tr>";
             for (let j = 0; j < colLength; j++) {
@@ -31,11 +32,19 @@
         tableHtml += "</table>";
         $("#pan").prepend(tableHtml);
 
+        let nowPointColor = 0;
+        let history = [];
+
+        let pos = $("#board");
+
         $("#realBoard").bind("click", function (event) {
             let x = event.pageX - $(event.target).offset().left - 20;
             let y = event.pageY - $(event.target).offset().top - 20;
-            let xR = Math.round(x / 40);
-            let yR = Math.round(y / 40);
+            let xR = Math.round(x / (pos.width()/colLength));
+            let yR = Math.round(y / (pos.width()/rowsLength));
+            if (xR < 0 || yR < 0) {
+                return;
+            }
             for (let i = 0; i < history.length ; i++) {
                 let his = history[i];
                 if (his.x === xR && his.y === yR) {
@@ -48,12 +57,9 @@
             drawPoint(point);
             history.push(point);
         });
-
-        let nowPointColor = 0;
-        let history = [];
-        $(".point").click(function () {
-            console.log('Not Allow');
-        });
+        // $(".point").click(function () {
+        //     console.log('Not Allow');
+        // });
         $("#ohNo").click(function () {
             nowPointColor--;
             $(".point:last").remove();
@@ -62,11 +68,12 @@
             }
         });
         function drawPoint(point) {
-            $("#points").append("<div class='point' onclick='console.log(\"Not Allow\");' style='background-color: " +
-                (nowPointColor % 2 === 0 ? 'black' : 'white') + ";" +
-                "width: 30px; height: 30px; border-radius: 15px;" +
-                "position: absolute; top: " + (5 + 40 * point.y) +
-                "px; left: " + (5 + 40 * point.x) + "px;'></div>")
+            $("#points").append("<div class='point' style='background-color: " +
+                (nowPointColor % 2 === 0 ? 'black' : 'white') + "; border: none;" +
+                "width: " + (pos.width()/colLength)*3/4 + "px; height: " + (pos.width()/colLength)*3/4 +
+                "px; border-radius: " +(pos.width()/colLength)*3/8 + "px; margin: -" + (pos.width()/colLength)*3/8 + "px 0 0 -" + (pos.width()/colLength)*3/8 + "px;" +
+                "position: absolute; top: " + (20 + (pos.width()/colLength) * point.y) +
+                "px; left: " + (20 + (pos.width()/colLength) * point.x) + "px;'></div>")
         }
     });
 </script>
