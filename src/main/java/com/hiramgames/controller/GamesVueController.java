@@ -55,6 +55,7 @@ public class GamesVueController {
         JSONObject member = new JSONObject();
         member.put("nickname", nickname);
         member.put("username", username);
+        member.put("color", 0);
         members.add(member);
         JSONObject roomInfo = new JSONObject();
         roomInfo.put("id", newRoomId);

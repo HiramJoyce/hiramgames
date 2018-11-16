@@ -7,7 +7,6 @@ import com.alibaba.fastjson.JSONObject;
 import com.hiramgames.service.RedisService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -15,9 +14,6 @@ import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-//import java.util.LinkedHashMap;
-//import java.util.Map;
-//import java.util.Date;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -25,15 +21,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @Component
 public class HiramGamesWebSocket {
 
-    @Resource
-    private RedisService redisService;
-
     private final Logger logger = LoggerFactory.getLogger(HiramGamesWebSocket.class);
     private static CopyOnWriteArraySet<HiramGamesWebSocket> webSocketSet = new CopyOnWriteArraySet<>();
     private Session session;
-    private Map<String, String> sessionIdAndUsername = new LinkedHashMap<>();
+    private static Map<String, Session> usernameToSession = new LinkedHashMap<>();
+    private static Map<Session, String> sessionToUsername = new LinkedHashMap<>();
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
     public static Map<String, JSONObject> rooms = new LinkedHashMap<>();
+    private static Map<String, JSONArray> roomHistory = new LinkedHashMap<>();
 
     @OnOpen
     public void onOpen(Session session) {
@@ -63,6 +58,9 @@ public class HiramGamesWebSocket {
     @OnClose
     public void onClose() {
         webSocketSet.remove(this);
+        String username = sessionToUsername.get(this.session);
+        sessionToUsername.remove(this.session);
+        usernameToSession.remove(username);
         if (rooms.keySet().contains(this.session.getId())) {
             logger.info("此人创建过房间，将删除此房间。");
             rooms.remove(this.session.getId());
@@ -97,21 +95,21 @@ public class HiramGamesWebSocket {
                     msg.put("type", "system");
                     msg.put("time", sdf.format(new Date()));
                     String username = messageObj.getString("username");
-                    sessionIdAndUsername.put(username, session.getId());
-                    sessionIdAndUsername.put(session.getId(), username);
-                    for (String name : sessionIdAndUsername.keySet()) {
-                        logger.info(" --- [ " + name + " : " + sessionIdAndUsername.get(name) + " ]");
+                    usernameToSession.put(username, session);
+                    sessionToUsername.put(session, username);
+                    for (String name : usernameToSession.keySet()) {
+                        logger.info(" --- [ " + name + " : " + usernameToSession.get(name).getId() + " ]");
                     }
-                    if (StringUtils.isEmpty(messageObj.getString("roomId")) || rooms.get(messageObj.getString("roomId")) == null) {
-                        msg.put("msg", "房间不存在");
-                        sendMessage(msg);
+                    String roomId = messageObj.getString("roomId");
+                    if (StringUtils.isEmpty(roomId) || rooms.get(roomId) == null) {
                         return;
                     }
                     JSONArray members = rooms.get(messageObj.getString("roomId")).getJSONArray("members");
                     for (Object member1 : members) {
                         JSONObject member = (JSONObject) member1;
                         if (StringUtils.equals(member.getString("username"), username)) {
-                            msg.put("msg", "你已在房间中");
+                            msg.put("msg", rooms.get(messageObj.getString("roomId")));
+                            msg.put("roomHistory", roomHistory.get(roomId));
                             sendMessage(msg);
                             return;
                         }
@@ -120,9 +118,111 @@ public class HiramGamesWebSocket {
                     JSONObject newMember = new JSONObject();
                     newMember.put("username", username);
                     newMember.put("nickname", nickname);
+                    newMember.put("color", 1);
                     rooms.get(messageObj.getString("roomId")).getJSONArray("members").add(newMember);
                     msg.put("msg", rooms.get(messageObj.getString("roomId")));
-                    sendMessage(msg);
+                    msg.put("roomHistory", roomHistory.get(roomId));
+                    for (Object memberO :rooms.get(messageObj.getString("roomId")).getJSONArray("members")) {
+                        JSONObject memberJ = (JSONObject) memberO;
+                        logger.info("--->>> 房间进人：向 " + memberJ.getString("username") + "发送消息！");
+                        usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
+                    }
+                    break;
+                case "movePiece":
+                    logger.info("movePiece!!!");
+                    roomId = messageObj.getString("roomId");
+                    msg.put("requireType", messageObj.getString("requireType"));
+                    msg.put("type", "system");
+                    msg.put("time", sdf.format(new Date()));
+                    JSONObject point = JSONObject.parseObject(messageObj.getString("point"));
+
+                    // 是否允许落子判断
+
+                    // 输赢判断
+
+                    // 加入房间落子记录
+                    JSONArray nowHistory;
+                    if (roomHistory.get(roomId)==null) {
+                        nowHistory = new JSONArray();
+                        roomHistory.put(roomId, nowHistory);
+                    }
+                    roomHistory.get(roomId).add(point);
+
+                    JSONObject room = rooms.get(roomId);
+                    members = room.getJSONArray("members");
+                    for (Object memberO : members) {
+                        JSONObject memberJ = (JSONObject) memberO;
+                        msg.put("move", point);
+                        logger.info("---> will send point to " + memberJ.getString("username"));
+                        usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
+                    }
+                    break;
+                case "retractApply":
+                    logger.info("--->>> retractApply");
+                    msg.put("requireType", messageObj.getString("requireType"));
+                    msg.put("type", "system");
+                    msg.put("time", sdf.format(new Date()));
+                    roomId = messageObj.getString("roomId");
+                    if (StringUtils.isEmpty(roomId) || rooms.get(roomId) == null) {
+                        return;
+                    }
+
+                    // 判断如果棋盘上没有申请者的棋子，不允许悔棋（前端已经验证）
+
+                    msg.put("msg", rooms.get(roomId));
+                    sendToOther(roomId, messageObj, msg);
+                    break;
+                case "retractReply":
+                    logger.info("--->>> retractReply");
+                    msg.put("requireType", messageObj.getString("requireType"));
+                    msg.put("type", "system");
+                    msg.put("time", sdf.format(new Date()));
+                    roomId = messageObj.getString("roomId");
+                    if (StringUtils.isEmpty(roomId) || rooms.get(roomId) == null) {
+                        return;
+                    }
+                    if (messageObj.getBoolean("reply")) {
+
+                        // 判断悔棋步数
+                        /*
+                         * if 最后的棋子是回复的人的 && 历史棋子的数量 > 1 ：
+                         *      删两步
+                         * else
+                         *      删一步
+                         */
+                        JSONArray history = roomHistory.get(roomId);
+
+                        for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
+                            JSONObject memberJ = (JSONObject) memberO;
+                            if (StringUtils.equals(memberJ.getString("username"), messageObj.getString("username"))) {
+                                if (((JSONObject)history.get(history.size()-1)).getIntValue("color") == memberJ.getIntValue("color") && history.size() > 1) {
+                                    roomHistory.get(roomId).remove(roomHistory.get(roomId).size()-1);
+                                }
+                            }
+                        }
+
+                        roomHistory.get(roomId).remove(roomHistory.get(roomId).size()-1);
+                        msg.put("msg", "同意悔棋");
+                    } else {
+                        msg.put("msg", "拒绝悔棋");
+                    }
+                    msg.put("roomHistory", roomHistory.get(roomId));
+                    for(Object memberO : rooms.get(roomId).getJSONArray("members")) {
+                        JSONObject memberJ = (JSONObject) memberO;
+                        usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
+                    }
+                    break;
+                case "giveUp":
+                    logger.info("--->>> giveUp");
+                    msg.put("requireType", messageObj.getString("requireType"));
+                    msg.put("type", "system");
+                    msg.put("time", sdf.format(new Date()));
+                    roomId = messageObj.getString("roomId");
+                    if (StringUtils.isEmpty(roomId) || rooms.get(roomId) == null) {
+                        return;
+                    }
+                    roomHistory.remove(roomId);
+                    sendToOther(roomId, messageObj, msg);
                     break;
                 default:
                     logger.info("default");
@@ -151,5 +251,19 @@ public class HiramGamesWebSocket {
 
     private void sendMessage(JSONObject message) throws IOException {
         this.session.getBasicRemote().sendText(message.toJSONString());
+    }
+
+    private void sendToOther(String roomId, JSONObject messageObj, JSONObject msg) {
+        for(Object memberO : rooms.get(roomId).getJSONArray("members")) {
+            JSONObject memberJ = (JSONObject) memberO;
+            logger.info(memberJ.getString("username") + "," + messageObj.getString("username"));
+            if (!StringUtils.equals(memberJ.getString("username"), messageObj.getString("username"))) {
+                try {
+                    usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }
