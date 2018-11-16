@@ -1,6 +1,7 @@
 package com.hiramgames.service;
 
 import com.alibaba.druid.util.StringUtils;
+import com.alibaba.fastjson.JSONObject;
 import com.hiramgames.dao.PlayerDao;
 import com.hiramgames.domain.Player;
 import com.hiramgames.domain.Result;
@@ -42,15 +43,20 @@ public class PlayerService {
         if (player == null) {
             return ResultUtil.error(ResultEnum.NO_DATA);
         }
-        if (StringUtils.equals(password, EncryptUtil.SHA512(EncryptUtil.SHA512(player.getPassword()) + player.getUsername()))) {
+        if (StringUtils.equals(player.getPassword(), EncryptUtil.SHA512(EncryptUtil.SHA512(password) + player.getUsername()))) {
             String token = TokenUtil.generateToken(player.getUsername());
-            redisService.set(token, player.getUsername(), 60 * 10L);
-            return ResultUtil.success(token);
+            redisService.set(token, player.getUsername() + "," + player.getNickname(), 60 * 10L);
+            JSONObject result = new JSONObject();
+            result.put("username", player.getUsername());
+            result.put("nickname", player.getNickname());
+            result.put("email", player.getEmail());
+            result.put("token", token);
+            return ResultUtil.success(result);
         }
         return ResultUtil.error(ResultEnum.ERROR);
     }
 
-    public Result<?> signUp(String username, String email, String password) {
+    public Result<?> signUp(String username, String nickname, String email, String password) {
         logger.info("--->>> Player attempt to signUp with " + username + " & " + email + " & " + password);
         if (!Pattern.matches(REGEX_EMAIL, email) || !Pattern.matches(REGEX_USERNAME, username)) {
             return ResultUtil.error(ResultEnum.ERROR);
@@ -60,11 +66,14 @@ public class PlayerService {
         }
         Player player = new Player();
         player.setUsername(username);
+        player.setNickname(nickname);
         player.setEmail(email);
         player.setPassword(EncryptUtil.SHA512(EncryptUtil.SHA512(password) + username));
         player.setSignUpTime(new Date());
-        playerDao.insertPlayer(player);
-        return null;
+        if (playerDao.insertPlayer(player) > 0) {
+            return ResultUtil.success();
+        }
+        return ResultUtil.error(ResultEnum.ERROR);
     }
 
     private Player getPlayerByEmail(String email) {

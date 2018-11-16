@@ -18,13 +18,13 @@ public class PlayerController {
         this.playerService = playerService;
     }
 
-    @PostMapping("/singin")
+    @PostMapping("/signin")
     public Result<?> signIn(String usernameOrEmail, String password) {
         return playerService.signIn(usernameOrEmail, password);
     }
 
-    @PostMapping("/singup")
-    public Result<?> signUp(String username, String email, String password) {
-        return playerService.signUp(username, email, password);
+    @PostMapping("/signup")
+    public Result<?> signUp(String username, String nickname, String email, String password) {
+        return playerService.signUp(username, nickname, email, password);
     }
 }

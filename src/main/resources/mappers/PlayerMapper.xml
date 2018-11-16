@@ -13,14 +13,17 @@
     <sql id="Base_Column_List" >
         id, username, nickname, email, signup_time
     </sql>
+    <sql id="Unsafe_Column_List" >
+        id, username, nickname, email, signup_time, password
+    </sql>
     <select id="selectPlayerByUsername" resultMap="BaseResultMap" parameterType="java.lang.String" >
-        select username, password from player where username = #{userName,jdbcType=VARCHAR}
+        select <include refid="Unsafe_Column_List" /> from player where username = #{userName,jdbcType=VARCHAR}
     </select>
     <select id="selectPlayerByEmail" resultMap="BaseResultMap" parameterType="java.lang.String" >
-        select username, password from player where email = #{email,jdbcType=VARCHAR}
+        select <include refid="Unsafe_Column_List" /> from player where email = #{email,jdbcType=VARCHAR}
     </select>
     <insert id="insertPlayer" parameterType="com.hiramgames.domain.Player" >
-        insert into record (username, nickname, email, password, signup_time, gender)
+        insert into player (username, nickname, email, password, signup_time, gender)
         values (
         #{username,jdbcType=VARCHAR},
         #{nickname,jdbcType=VARCHAR},

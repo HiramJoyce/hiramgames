@@ -26,7 +26,9 @@ public class HiramGamesWebSocket {
     private static CopyOnWriteArraySet<HiramGamesWebSocket> webSocketSet = new CopyOnWriteArraySet<>();
     private Session session;
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-    public static Map<String, List<String>> rooms = new LinkedHashMap<>();
+//    public static Map<String, List<String>> rooms = new LinkedHashMap<>();
+    // {id:'zhangsan09039',members:[{name:'张三',id:'zhangsan'},{name:'李四',id:'lisi'}],name:'张三的房间'},
+    public static Map<String, JSONObject> rooms = new LinkedHashMap<>();
 
     @OnOpen
     public void onOpen(Session session) {
@@ -84,13 +86,13 @@ public class HiramGamesWebSocket {
             JSONObject messageObj = JSONObject.parseObject(message);
             logger.info("---> onMessage: " + messageObj.toJSONString());
             switch (messageObj.getString("requireType")) {
-                case "newRoom":
-                    logger.info("newRoom");
-                    if (!rooms.keySet().contains(session.getId())) {
-                        List<String> members = new ArrayList<>(2);
-                        members.add(session.getId());
-                        rooms.put(session.getId(), members);
-                    }
+//                case "newRoom":
+//                    logger.info("newRoom");
+//                    if (!rooms.keySet().contains(session.getId())) {
+//                        List<String> members = new ArrayList<>(2);
+//                        members.add(session.getId());
+//                        rooms.put(session.getId(), members);
+//                    }
                 case "getRooms":
                     logger.info("getRooms");
                     JSONArray roomsJA = new JSONArray();

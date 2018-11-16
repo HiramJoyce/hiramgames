@@ -25,38 +25,39 @@ public class GamesController {
 
     @RequestMapping("/gobang")
     public String goBang(Model model) {
-        JSONArray roomsJA = new JSONArray();
-        GamesVueController.getRoomsArr(roomsJA);
-        model.addAttribute("rooms", roomsJA);
+//        JSONArray roomsJA = new JSONArray();
+//        GamesVueController.getRoomsArr(roomsJA);
+//        model.addAttribute("rooms", roomsJA);
         return "games/gobangLobby";
     }
 
     @RequestMapping("/gobanggame")
     public String goBangRoom(String roomName, String player) {
-        if (HiramGamesWebSocket.rooms.keySet().contains(roomName) && HiramGamesWebSocket.rooms.get(roomName).size()<2) {
-            System.out.println("roomName: " + roomName);
-            System.out.println("size: " + HiramGamesWebSocket.rooms.get(roomName).size());
-            HiramGamesWebSocket.rooms.get(roomName).add(player);
-            System.out.println("size: " + HiramGamesWebSocket.rooms.get(roomName).size());
-        }
+//        if (HiramGamesWebSocket.rooms.keySet().contains(roomName) && HiramGamesWebSocket.rooms.get(roomName).size()<2) {
+//            System.out.println("roomName: " + roomName);
+//            System.out.println("size: " + HiramGamesWebSocket.rooms.get(roomName).size());
+//            HiramGamesWebSocket.rooms.get(roomName).add(player);
+//            System.out.println("size: " + HiramGamesWebSocket.rooms.get(roomName).size());
+//        }
         return "games/gobang";
     }
 
     @RequestMapping("/gobanggamenew")
     @ResponseBody
     public JSONArray newGoBangRoom(String player) {
-        System.out.println("new room");
-        List<String> members = new ArrayList<>();
-        members.add(player);
-        HiramGamesWebSocket.rooms.put(player, members);
-        JSONArray roomsJA = new JSONArray();
-        for (String roomName: HiramGamesWebSocket.rooms.keySet()) {
-            System.out.println(roomName);
-            JSONObject roomInfo = new JSONObject();
-            roomInfo.put("name", roomName);
-            roomInfo.put("members", HiramGamesWebSocket.rooms.get(roomName));
-            roomsJA.add(roomInfo);
-        }
-        return roomsJA;
+//        System.out.println("new room");
+//        List<String> members = new ArrayList<>();
+//        members.add(player);
+//        HiramGamesWebSocket.rooms.put(player, members);
+//        JSONArray roomsJA = new JSONArray();
+//        for (String roomName: HiramGamesWebSocket.rooms.keySet()) {
+//            System.out.println(roomName);
+//            JSONObject roomInfo = new JSONObject();
+//            roomInfo.put("name", roomName);
+//            roomInfo.put("members", HiramGamesWebSocket.rooms.get(roomName));
+//            roomsJA.add(roomInfo);
+//        }
+//        return roomsJA;
+        return null;
     }
 }
