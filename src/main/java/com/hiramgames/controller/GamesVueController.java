@@ -6,6 +6,7 @@ import com.hiramgames.component.HiramGamesWebSocket;
 import com.hiramgames.domain.Result;
 import com.hiramgames.util.ResultUtil;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,6 +19,11 @@ public class GamesVueController {
         JSONArray roomsJA = new JSONArray();
         getRoomsArr(roomsJA);
         return ResultUtil.success(roomsJA);
+    }
+
+    @PostMapping("/createRoom")
+    public Result<?> createRoom() {
+        return ResultUtil.success();
     }
 
     static void getRoomsArr(JSONArray roomsJA) {
