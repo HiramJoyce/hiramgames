@@ -1,12 +1,16 @@
 package com.hiramgames.component;
 
+import com.alibaba.druid.util.StringUtils;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
+import com.hiramgames.service.RedisService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
@@ -21,13 +25,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @Component
 public class HiramGamesWebSocket {
 
+    @Resource
+    private RedisService redisService;
+
     private final Logger logger = LoggerFactory.getLogger(HiramGamesWebSocket.class);
-    //    private static Map<String, String> playersBySessionId = new LinkedHashMap<>();
     private static CopyOnWriteArraySet<HiramGamesWebSocket> webSocketSet = new CopyOnWriteArraySet<>();
     private Session session;
+    private Map<String, String> sessionIdAndUsername = new LinkedHashMap<>();
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-//    public static Map<String, List<String>> rooms = new LinkedHashMap<>();
-    // {id:'zhangsan09039',members:[{name:'张三',id:'zhangsan'},{name:'李四',id:'lisi'}],name:'张三的房间'},
     public static Map<String, JSONObject> rooms = new LinkedHashMap<>();
 
     @OnOpen
@@ -84,39 +89,40 @@ public class HiramGamesWebSocket {
         JSONObject msg = new JSONObject();
         try {
             JSONObject messageObj = JSONObject.parseObject(message);
-            logger.info("---> onMessage: " + messageObj.toJSONString());
+            logger.info(message);
             switch (messageObj.getString("requireType")) {
-//                case "newRoom":
-//                    logger.info("newRoom");
-//                    if (!rooms.keySet().contains(session.getId())) {
-//                        List<String> members = new ArrayList<>(2);
-//                        members.add(session.getId());
-//                        rooms.put(session.getId(), members);
-//                    }
-                case "getRooms":
-                    logger.info("getRooms");
-                    JSONArray roomsJA = new JSONArray();
-                    getRoomsJSONArray(roomsJA);
-                    msg.put("rooms", roomsJA);
+                case "joinGame":
+                    logger.info("--->>> join game");
+                    msg.put("requireType", messageObj.getString("requireType"));
                     msg.put("type", "system");
                     msg.put("time", sdf.format(new Date()));
-                    if (messageObj.getString("requireType").equals("newRoom")) {
-                        msg.put("requireType", "newRoom");
-                        for (HiramGamesWebSocket item : webSocketSet) {
-                            try {
-                                item.sendMessage(msg);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    } else {
-                        msg.put("requireType", "getRooms");
-                        try {
+                    String username = messageObj.getString("username");
+                    sessionIdAndUsername.put(username, session.getId());
+                    sessionIdAndUsername.put(session.getId(), username);
+                    for (String name : sessionIdAndUsername.keySet()) {
+                        logger.info(" --- [ " + name + " : " + sessionIdAndUsername.get(name) + " ]");
+                    }
+                    if (StringUtils.isEmpty(messageObj.getString("roomId")) || rooms.get(messageObj.getString("roomId")) == null) {
+                        msg.put("msg", "房间不存在");
+                        sendMessage(msg);
+                        return;
+                    }
+                    JSONArray members = rooms.get(messageObj.getString("roomId")).getJSONArray("members");
+                    for (Object member1 : members) {
+                        JSONObject member = (JSONObject) member1;
+                        if (StringUtils.equals(member.getString("username"), username)) {
+                            msg.put("msg", "你已在房间中");
                             sendMessage(msg);
-                        } catch (IOException IOErr) {
-                            IOErr.printStackTrace();
+                            return;
                         }
                     }
+                    String nickname = messageObj.getString("nickname");
+                    JSONObject newMember = new JSONObject();
+                    newMember.put("username", username);
+                    newMember.put("nickname", nickname);
+                    rooms.get(messageObj.getString("roomId")).getJSONArray("members").add(newMember);
+                    msg.put("msg", rooms.get(messageObj.getString("roomId")));
+                    sendMessage(msg);
                     break;
                 default:
                     logger.info("default");
@@ -132,6 +138,8 @@ public class HiramGamesWebSocket {
             } catch (IOException IOErr) {
                 IOErr.printStackTrace();
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

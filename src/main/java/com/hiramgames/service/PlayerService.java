@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class PlayerService {
     private final Logger logger = LoggerFactory.getLogger(PlayerService.class);
     private final String REGEX_EMAIL = "^([a-z0-9A-Z]+[-|\\.]?)+[a-z0-9A-Z]@([a-z0-9A-Z]+(-[a-z0-9A-Z]+)?\\.)+[a-zA-Z]{2,}$";
-    private final String REGEX_USERNAME = "^[a-zA-Z]\\w{5,20}$";
+    private final String REGEX_USERNAME = "^[a-zA-Z]\\w{3,20}$";
     private final String REGEX_MOBILE = "^((17[0-9])|(14[0-9])|(13[0-9])|(15[^4,\\D])|(18[0,5-9]))\\d{8}$";
     @Resource
     PlayerDao playerDao;
@@ -57,7 +57,7 @@ public class PlayerService {
     }
 
     public Result<?> signUp(String username, String nickname, String email, String password) {
-        logger.info("--->>> Player attempt to signUp with " + username + " & " + email + " & " + password);
+        logger.info("--->>> Player attempt to signUp with " + username + " & " + nickname + " & " + email + " & " + password);
         if (!Pattern.matches(REGEX_EMAIL, email) || !Pattern.matches(REGEX_USERNAME, username)) {
             return ResultUtil.error(ResultEnum.ERROR);
         }

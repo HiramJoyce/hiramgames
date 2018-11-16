@@ -61,7 +61,7 @@ public class GamesVueController {
         roomInfo.put("members", members);
         roomInfo.put("name", roomname);
         HiramGamesWebSocket.rooms.put(newRoomId, roomInfo);
-        return ResultUtil.success();
+        return ResultUtil.success(newRoomId);
     }
 
     @PostMapping("/player/signin")
