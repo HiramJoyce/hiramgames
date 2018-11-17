@@ -82,7 +82,7 @@ public class HiramGamesWebSocket {
         //       删除房间数据和游戏数据
 
         boolean inRoom = false;
-        a:for (String roomName : rooms.keySet()) {
+        for (String roomName : rooms.keySet()) {
             JSONObject room = rooms.get(roomName);
             for (Object memberO : room.getJSONArray("members")) {
                 JSONObject memberJ = (JSONObject) memberO;
@@ -187,7 +187,6 @@ public class HiramGamesWebSocket {
                     int y = point.getIntValue("y");
                     roomBoard.computeIfAbsent(roomId, k -> new Integer[16][16]);
                     roomBoard.get(roomId)[x][y] = point.getIntValue("color");
-                    boolean finish = false;
                     if (think(x, y, roomBoard.get(roomId))) {
                         logger.info("--->>> 判断输赢完成 得出结果 " + point.getIntValue("color") + " 赢!");
                         logger.info("--->>> 游戏结束清除历史数据");
