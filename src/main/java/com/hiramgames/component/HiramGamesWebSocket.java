@@ -4,12 +4,10 @@ import com.alibaba.druid.util.StringUtils;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
-import com.hiramgames.service.RedisService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
@@ -22,13 +20,30 @@ import java.util.concurrent.CopyOnWriteArraySet;
 public class HiramGamesWebSocket {
 
     private final Logger logger = LoggerFactory.getLogger(HiramGamesWebSocket.class);
+    // 使用set保存当前到socket的所有连接
+    // onOpen和onClose时都需要主动更新该set
     private static CopyOnWriteArraySet<HiramGamesWebSocket> webSocketSet = new CopyOnWriteArraySet<>();
     private Session session;
+    // 用户发出joinGame类型的请求后将session和该用户名绑定
+    // 方便对局中通过用户名拿到该用户的session发送socket消息
+    // 出发onClose或者onError时应该及时更新这两个map
     private static Map<String, Session> usernameToSession = new LinkedHashMap<>();
     private static Map<Session, String> sessionToUsername = new LinkedHashMap<>();
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    // 存储当前所有的游戏房间，键为房间id
+    // jsonobject存储了roomId，members（JSONArray），房间名字name等
+    // 房间不存在后应根据roomId删除rooms中相应的数据
     public static Map<String, JSONObject> rooms = new LinkedHashMap<>();
+    // 存储房间的历史棋子，键为房间id
+    // jsonarray中存放jsonobject，jsonobject格式为{x:0,y:0,color:0}
+    // 收到movePiece、giveUp、retract类型的请求时需要更新这个map和roomBoardmap
+    // 房间不存在后应根据roomId删除roomHistory中相应的数据
     private static Map<String, JSONArray> roomHistory = new LinkedHashMap<>();
+    // 用来方便判定输赢的二维数组，键为房间id
+    // 值为房间的棋盘二维数组，存的是颜色的值
+    // 只要更新roomHistory都应该更新这个map
+    // 房间不存在后应根据roomId删除roomBoard中相应的数据
+    private static Map<String, Integer[][]> roomBoard = new LinkedHashMap<>();
 
     @OnOpen
     public void onOpen(Session session) {
@@ -61,20 +76,38 @@ public class HiramGamesWebSocket {
         String username = sessionToUsername.get(this.session);
         sessionToUsername.remove(this.session);
         usernameToSession.remove(username);
-        if (rooms.keySet().contains(this.session.getId())) {
-            logger.info("此人创建过房间，将删除此房间。");
-            rooms.remove(this.session.getId());
-            JSONObject msg = new JSONObject();
-            msg.put("type", "system");
-            msg.put("requireType", "getRooms");
-            JSONArray roomsJA = new JSONArray();
-            getRoomsJSONArray(roomsJA);
-            msg.put("rooms", roomsJA);
-            for (HiramGamesWebSocket item : webSocketSet) {
-                try {
-                    item.sendMessage(msg);
-                } catch (IOException e) {
-                    e.printStackTrace();
+
+        // if 断开连接的人是否在某房间中
+        //    if 该房间中还有其他人
+        //       更新房间信息members并通知另一个人
+        //    else
+        //       删除房间数据和游戏数据
+
+        boolean inRoom = false;
+        a:for (String roomName : rooms.keySet()) {
+            JSONObject room = rooms.get(roomName);
+            for (Object memberO : room.getJSONArray("members")) {
+                JSONObject memberJ = (JSONObject) memberO;
+                if (StringUtils.equals(memberJ.getString("username"), username)) {
+                    inRoom = true;
+                    break;
+                }
+            }
+            if (inRoom) {   // 在当前遍历到的房间中，判断房间中是否有对手
+                if (room.getJSONArray("members").size() > 1) {
+                    JSONObject msg = new JSONObject();
+                    for (Object memberO : room.getJSONArray("members")) {
+                        JSONObject memberJ = (JSONObject) memberO;
+                        if (!StringUtils.equals(memberJ.getString("username"), username)) {
+                            try {
+                                msg.put("requireType", "escape");
+                                usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -138,8 +171,6 @@ public class HiramGamesWebSocket {
 
                     // 是否允许落子判断
 
-                    // 输赢判断
-
                     // 加入房间落子记录
                     JSONArray nowHistory;
                     if (roomHistory.get(roomId)==null) {
@@ -147,6 +178,22 @@ public class HiramGamesWebSocket {
                         roomHistory.put(roomId, nowHistory);
                     }
                     roomHistory.get(roomId).add(point);
+
+                    // 判定输赢
+                    logger.info("--->>> 判断输赢");
+                    int x = point.getIntValue("x");
+                    int y = point.getIntValue("y");
+                    roomBoard.computeIfAbsent(roomId, k -> new Integer[16][16]);
+                    roomBoard.get(roomId)[x][y] = point.getIntValue("color");
+                    boolean finish = false;
+                    if (think(x, y, roomBoard.get(roomId))) {
+                        logger.info("--->>> 判断输赢完成 得出结果 " + point.getIntValue("color") + " 赢!");
+                        logger.info("--->>> 游戏结束清除历史数据");
+                        // 游戏结束删掉对局记录
+                        roomHistory.remove(roomId);
+                        roomBoard.remove(roomId);
+                        msg.put("result", point.getIntValue("color"));
+                    }
 
                     JSONObject room = rooms.get(roomId);
                     members = room.getJSONArray("members");
@@ -156,6 +203,7 @@ public class HiramGamesWebSocket {
                         logger.info("---> will send point to " + memberJ.getString("username"));
                         usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
                     }
+
                     break;
                 case "retractApply":
                     logger.info("--->>> retractApply");
@@ -221,7 +269,11 @@ public class HiramGamesWebSocket {
                     if (StringUtils.isEmpty(roomId) || rooms.get(roomId) == null) {
                         return;
                     }
+
+                    // 游戏结束删掉对局记录
                     roomHistory.remove(roomId);
+                    roomBoard.remove(roomId);
+
                     sendToOther(roomId, messageObj, msg);
                     break;
                 default:
@@ -265,5 +317,90 @@ public class HiramGamesWebSocket {
                 }
             }
         }
+    }
+
+    private boolean think (int xIndex, int yIndex, Integer[][] board) {
+        int count = 1;
+        for(int x=xIndex-1;x>=0;x--){
+            if (isEqual(x, yIndex, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        int BOARD_SIZE = 15;
+        for(int x = xIndex+1; x<= BOARD_SIZE; x++){
+            if (isEqual(x, yIndex, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        if (count>=5) {
+            return true;
+        }else{
+            count = 1;
+        }
+        for(int y=yIndex-1;y>=0;y--){
+            if (isEqual(xIndex, y, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        for(int y = yIndex+1; y<= BOARD_SIZE; y++){
+            if (isEqual(xIndex, y, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        if (count>=5) {
+            return true;
+        }else{
+            count = 1;
+        }
+        for(int x = xIndex+1, y = yIndex-1; y>=0&&x<= BOARD_SIZE; x++,y--){
+            if (isEqual(x, y, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        for(int x = xIndex-1, y = yIndex+1; y<= BOARD_SIZE &&x>=0; x--,y++){
+            if (isEqual(x, y, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        if (count>=5) {
+            return true;
+        }else{
+            count = 1;
+        }
+        for(int x=xIndex-1,y=yIndex-1;y>=0&&x>=0;x--,y--){
+            if (isEqual(x, y, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        for(int x = xIndex+1, y = yIndex+1; y<= BOARD_SIZE &&x<= BOARD_SIZE; x++,y++){
+            if (isEqual(x, y, xIndex, yIndex, board)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        if (count>=5) {
+            return true;
+        }else{
+            count = 1;
+        }
+        return false;
+    }
+    private boolean isEqual(int x, int y, int xIndex, int yIndex, Integer[][] board) {
+        return board[x][y] != null && Objects.equals(board[x][y], board[xIndex][yIndex]);
     }
 }
