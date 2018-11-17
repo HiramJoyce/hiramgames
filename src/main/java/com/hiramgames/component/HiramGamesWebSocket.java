@@ -82,30 +82,37 @@ public class HiramGamesWebSocket {
         //       删除房间数据和游戏数据
 
         boolean inRoom = false;
-        for (String roomName : rooms.keySet()) {
-            JSONObject room = rooms.get(roomName);
+        for (String roomId : rooms.keySet()) {
+            JSONObject room = rooms.get(roomId);
+            JSONObject memberInfo = null;
             for (Object memberO : room.getJSONArray("members")) {
                 JSONObject memberJ = (JSONObject) memberO;
                 if (StringUtils.equals(memberJ.getString("username"), username)) {
                     inRoom = true;
+                    memberInfo = memberJ;
                     break;
                 }
             }
             if (inRoom) {   // 在当前遍历到的房间中，判断房间中是否有对手
                 if (room.getJSONArray("members").size() > 1) {
+                    rooms.get(roomId).getJSONArray("members").remove(memberInfo);
                     JSONObject msg = new JSONObject();
                     for (Object memberO : room.getJSONArray("members")) {
                         JSONObject memberJ = (JSONObject) memberO;
                         if (!StringUtils.equals(memberJ.getString("username"), username)) {
+                            msg.put("requireType", "escape");
+                            msg.put("msg", rooms.get(roomId));
                             try {
-                                msg.put("requireType", "escape");
                                 usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
-                            break;
                         }
                     }
+                } else {
+                    rooms.remove(roomId);
+                    roomHistory.remove(roomId);
+                    roomBoard.remove(roomId);
                 }
             }
         }
@@ -140,9 +147,9 @@ public class HiramGamesWebSocket {
                         return;
                     }
                     JSONArray members = rooms.get(messageObj.getString("roomId")).getJSONArray("members");
-                    for (Object member1 : members) {
-                        JSONObject member = (JSONObject) member1;
-                        if (StringUtils.equals(member.getString("username"), username)) {
+                    for (Object memberO : members) {
+                        JSONObject memberJ = (JSONObject) memberO;
+                        if (StringUtils.equals(memberJ.getString("username"), username)) {
                             msg.put("msg", rooms.get(messageObj.getString("roomId")));
                             msg.put("roomHistory", roomHistory.get(roomId));
                             sendMessage(msg);
