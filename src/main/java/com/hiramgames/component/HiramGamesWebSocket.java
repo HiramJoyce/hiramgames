@@ -12,7 +12,10 @@ import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 @ServerEndpoint(value = "/hiramgames")
@@ -100,7 +103,13 @@ public class HiramGamesWebSocket {
                     for (Object memberO : room.getJSONArray("members")) {
                         JSONObject memberJ = (JSONObject) memberO;
                         if (!StringUtils.equals(memberJ.getString("username"), username)) {
-                            msg.put("requireType", "escape");
+                            if (roomHistory.get(roomId) != null && roomHistory.get(roomId).size() > 0) {
+                                // 有游戏数据，判定为逃跑
+                                msg.put("requireType", "escape");
+                            } else {
+                                // 没有游戏数据，判定为正常离开
+                                msg.put("requireType", "leave");
+                            }
                             msg.put("msg", rooms.get(roomId));
                             try {
                                 usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
