@@ -74,8 +74,6 @@ public class HiramGamesWebSocket {
     public void onClose() {
         webSocketSet.remove(this);
         String username = sessionToUsername.get(this.session);
-        sessionToUsername.remove(this.session);
-        usernameToSession.remove(username);
 
         // if 断开连接的人是否在某房间中
         //    if 该房间中还有其他人
@@ -111,6 +109,10 @@ public class HiramGamesWebSocket {
                 }
             }
         }
+
+        sessionToUsername.remove(this.session);
+        usernameToSession.remove(username);
+
         // TODO 判断用户状态，如果在游戏中失去连接判定为逃跑
         logger.info("---> [" + this.session.getId() + "] close the connection.");
     }
