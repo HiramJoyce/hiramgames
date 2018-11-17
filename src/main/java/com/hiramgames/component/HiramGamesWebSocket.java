@@ -142,38 +142,46 @@ public class HiramGamesWebSocket {
             switch (messageObj.getString("requireType")) {
                 case "joinGame":
                     logger.info("--->>> join game");
-                    msg.put("requireType", messageObj.getString("requireType"));
-                    msg.put("type", "system");
-                    msg.put("time", sdf.format(new Date()));
-                    String username = messageObj.getString("username");
-                    usernameToSession.put(username, session);
-                    sessionToUsername.put(session, username);
-                    for (String name : usernameToSession.keySet()) {
-                        logger.info(" --- [ " + name + " : " + usernameToSession.get(name).getId() + " ]");
-                    }
                     String roomId = messageObj.getString("roomId");
                     if (StringUtils.isEmpty(roomId) || rooms.get(roomId) == null) {
                         return;
                     }
-                    JSONArray members = rooms.get(messageObj.getString("roomId")).getJSONArray("members");
-                    for (Object memberO : members) {
-                        JSONObject memberJ = (JSONObject) memberO;
-                        if (StringUtils.equals(memberJ.getString("username"), username)) {
-                            msg.put("msg", rooms.get(messageObj.getString("roomId")));
-                            msg.put("roomHistory", roomHistory.get(roomId));
-                            sendMessage(msg);
-                            return;
-                        }
+
+                    // * 如果房间存在说明至少有一个人
+
+                    // 加入游戏判断规则
+                    // if 房间内人数小于2
+                    //    if 房间人数为1 且不为此人
+                    //       此人为加入者 加入者color = 前成员color==1 ? 0 : 1
+                    //    更新房间信息并返回
+                    // else 观战模式
+                    //    暂时不考虑
+
+                    if (rooms.get(roomId).getJSONArray("members").size() >= 2) {
+                        // 如果房间人数大于等于2不允许加入（游客模式后期开发）
+                        return;
                     }
-                    String nickname = messageObj.getString("nickname");
-                    JSONObject newMember = new JSONObject();
-                    newMember.put("username", username);
-                    newMember.put("nickname", nickname);
-                    newMember.put("color", 1);
-                    rooms.get(messageObj.getString("roomId")).getJSONArray("members").add(newMember);
-                    msg.put("msg", rooms.get(messageObj.getString("roomId")));
+                    String username = messageObj.getString("username");
+                    JSONObject theOnlyMember = (JSONObject)rooms.get(roomId).getJSONArray("members").get(0);
+                    if (!StringUtils.equals(theOnlyMember.getString("username"), username)) {
+                        JSONObject newMember = new JSONObject();
+                        newMember.put("username", username);
+                        newMember.put("nickname", messageObj.getString("nickname"));
+                        newMember.put("color", theOnlyMember.getIntValue("color") == 1 ? 0 : 1);
+                        rooms.get(roomId).getJSONArray("members").add(newMember);
+                    }
+                    msg.put("requireType", messageObj.getString("requireType"));
+                    msg.put("type", "system");
+                    msg.put("time", sdf.format(new Date()));
+
+                    // 将当前用户的username与session信息绑定（断开连接时清除）
+                    usernameToSession.put(username, session);
+                    sessionToUsername.put(session, username);
+
+                    JSONArray members = rooms.get(roomId).getJSONArray("members");
+                    msg.put("msg", rooms.get(roomId));
                     msg.put("roomHistory", roomHistory.get(roomId));
-                    for (Object memberO :rooms.get(messageObj.getString("roomId")).getJSONArray("members")) {
+                    for (Object memberO : members) {
                         JSONObject memberJ = (JSONObject) memberO;
                         logger.info("--->>> 房间进人：向 " + memberJ.getString("username") + "发送消息！");
                         usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
