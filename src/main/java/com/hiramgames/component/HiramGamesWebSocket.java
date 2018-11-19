@@ -108,7 +108,7 @@ public class HiramGamesWebSocket {
                 if (room.getJSONArray("members").size() > 1) {
                     logger.info("     wow ! there is ! then we will check if the player is escape ... ");
                     JSONObject msg = new JSONObject();
-                    if (roomHistory.get(roomId) != null && roomHistory.get(roomId).size() > 0) {
+                    if (roomHistory != null && roomHistory.get(roomId) != null && roomHistory.get(roomId).size() > 0) {
                         logger.info("     roomHistory of the room [" + roomId + "] is not null & size > 0, is escape ! wow !");
                         // 有游戏数据，判定为逃跑
                         saveGameDate(roomId, memberInfo, false);
