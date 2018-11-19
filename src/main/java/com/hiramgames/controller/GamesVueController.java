@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.hiramgames.component.HiramGamesWebSocket;
 import com.hiramgames.domain.Result;
 import com.hiramgames.domain.enums.ResultEnum;
+import com.hiramgames.service.GameService;
 import com.hiramgames.service.PlayerService;
 import com.hiramgames.service.RedisService;
 import com.hiramgames.util.ResultUtil;
@@ -15,19 +16,23 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api")
 public class GamesVueController {
 
     private final PlayerService playerService;
     private final RedisService redisService;
+    private final GameService gameService;
     @Autowired
-    public GamesVueController(PlayerService playerService, RedisService redisService) {
+    public GamesVueController(PlayerService playerService, RedisService redisService, GameService gameService) {
         this.playerService = playerService;
         this.redisService = redisService;
+        this.gameService = gameService;
+    }
+
+    @GetMapping("/games")
+    public Result<?> getGames() {
+        return gameService.getGames();
     }
 
     @GetMapping("/gobang/rooms")

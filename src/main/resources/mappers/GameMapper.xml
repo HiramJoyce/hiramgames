@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.hiramgames.dao.GameDao" >
+    <resultMap id="BaseResultMap" type="com.hiramgames.domain.Game" >
+        <id column="id" property="id" jdbcType="INTEGER" />
+        <result column="cnname" property="cnName" jdbcType="VARCHAR" />
+        <result column="enname" property="enName" jdbcType="VARCHAR" />
+        <result column="uptime" property="upTime" jdbcType="TIMESTAMP" />
+        <result column="open" property="open" jdbcType="INTEGER" />
+    </resultMap>
+    <sql id="Base_Column_List" >
+        id, cnname, enname, uptime, open
+    </sql>
+    <select id="findGames" resultMap="BaseResultMap">
+        select <include refid="Base_Column_List" /> from game where open = 1
+    </select>
+    <insert id="insertPlayer" parameterType="com.hiramgames.domain.Player" >
+        insert into game (cnname, enname, uptime, open)
+        values (
+        #{cnName,jdbcType=VARCHAR},
+        #{enName,jdbcType=VARCHAR},
+        #{upTime,jdbcType=TIMESTAMP},
+        #{open,jdbcType=INTEGER}
+        )
+    </insert>
+    <!--<update id="updateRecord" parameterType="com.hiramexpress.domain.Record">-->
+        <!--update record set record_times=#{recordTimes,jdbcType=INTEGER} where id=#{id,jdbcType=INTEGER}-->
+    <!--</update>-->
+</mapper>
