@@ -8,6 +8,7 @@ public class Game {
     private String enName;  // 英文名
     private Date upTime;    // 上线时间
     private int open;    // 是否开放
+    private String path;    // 路径
 
     public int getId() {
         return id;
@@ -47,5 +48,13 @@ public class Game {
 
     public void setOpen(int open) {
         this.open = open;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
     }
 }

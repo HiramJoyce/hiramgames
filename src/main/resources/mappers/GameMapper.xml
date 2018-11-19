@@ -7,20 +7,22 @@
         <result column="enname" property="enName" jdbcType="VARCHAR" />
         <result column="uptime" property="upTime" jdbcType="TIMESTAMP" />
         <result column="open" property="open" jdbcType="INTEGER" />
+        <result column="path" property="path" jdbcType="VARCHAR" />
     </resultMap>
     <sql id="Base_Column_List" >
-        id, cnname, enname, uptime, open
+        id, cnname, enname, uptime, open, path
     </sql>
     <select id="findGames" resultMap="BaseResultMap">
         select <include refid="Base_Column_List" /> from game where open = 1
     </select>
     <insert id="insertPlayer" parameterType="com.hiramgames.domain.Player" >
-        insert into game (cnname, enname, uptime, open)
+        insert into game (cnname, enname, uptime, open, path)
         values (
         #{cnName,jdbcType=VARCHAR},
         #{enName,jdbcType=VARCHAR},
         #{upTime,jdbcType=TIMESTAMP},
-        #{open,jdbcType=INTEGER}
+        #{open,jdbcType=INTEGER},
+        #{path,jdbcType=VARCHAR}
         )
     </insert>
     <!--<update id="updateRecord" parameterType="com.hiramexpress.domain.Record">-->

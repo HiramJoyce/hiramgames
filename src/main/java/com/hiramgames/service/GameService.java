@@ -25,6 +25,7 @@ public class GameService {
             game.put("cnname", gameEach.getCnName());
             game.put("enname", gameEach.getEnName());
             game.put("uptime", gameEach.getUpTime());
+            game.put("path", gameEach.getPath());
             gameArr.add(game);
         }
         return ResultUtil.success(gameArr);
