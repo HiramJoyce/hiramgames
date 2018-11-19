@@ -8,7 +8,6 @@ import com.hiramgames.domain.GameRecord;
 import com.hiramgames.service.GameRecordService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
@@ -48,8 +47,6 @@ public class HiramGamesWebSocket {
     // 只要更新roomHistory都应该更新这个map
     // 房间不存在后应根据roomId删除roomBoard中相应的数据
     private static Map<String, Integer[][]> roomBoard = new LinkedHashMap<>();
-
-    private GameRecordService gameRecordService;
 
     private static ApplicationContext applicationContext;
 
@@ -380,7 +377,7 @@ public class HiramGamesWebSocket {
 
     private void saveGameDate(String roomId, JSONObject messageObj, boolean win) {
         logger.info("--- 保存记录 start");
-        gameRecordService = applicationContext.getBean(GameRecordService.class);
+        GameRecordService gameRecordService = applicationContext.getBean(GameRecordService.class);
         if (gameRecordService != null) {
             GameRecord gameRecord = new GameRecord();
             gameRecord.setGameId(rooms.get(roomId).getIntValue("gameid"));
@@ -479,12 +476,7 @@ public class HiramGamesWebSocket {
                 break;
             }
         }
-        if (count >= 5) {
-            return true;
-        } else {
-            count = 1;
-        }
-        return false;
+        return count >= 5;
     }
 
     private boolean isEqual(int x, int y, int xIndex, int yIndex, Integer[][] board) {
