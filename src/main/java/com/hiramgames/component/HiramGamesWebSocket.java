@@ -388,15 +388,14 @@ public class HiramGamesWebSocket {
             gameRecord.setEndTime(new Date());
             ArrayList<String> playersId = new ArrayList<>();
             ArrayList<String> windersId = new ArrayList<>();
+            if (win) {
+                windersId.add(messageObj.getString("id"));
+            }
             for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
                 JSONObject memberJ = (JSONObject) memberO;
                 playersId.add(memberJ.getString("id"));
-                if (win) {
-                    windersId.add(messageObj.getString("id"));
-                } else {
-                    if (!StringUtils.equals(memberJ.getString("id"), messageObj.getString("id"))) {
-                        windersId.add(memberJ.getString("id"));
-                    }
+                if (!win && !StringUtils.equals(memberJ.getString("id"), messageObj.getString("id"))) {
+                    windersId.add(memberJ.getString("id"));
                 }
             }
             gameRecord.setPlayersId(org.apache.tomcat.util.buf.StringUtils.join(playersId, ','));
