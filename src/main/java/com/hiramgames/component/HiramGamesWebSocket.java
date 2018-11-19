@@ -75,8 +75,10 @@ public class HiramGamesWebSocket {
 
     @OnClose
     public void onClose() {
-        webSocketSet.remove(this);
+        logger.info(" ### call onClose : someone lose the connection ... ");
+        // 通过session拿到失去连接用户的用户名
         String username = sessionToUsername.get(this.session);
+        logger.info("     find it is [" + username + "].");
 
         // if 断开连接的人是否在某房间中
         //    if 该房间中还有其他人
@@ -85,51 +87,65 @@ public class HiramGamesWebSocket {
         //       删除房间数据和游戏数据
 
         boolean inRoom = false;
+        logger.info("     foreach rooms to check which room is the player in ... ");
         for (String roomId : rooms.keySet()) {
+            logger.info("     now the room is " + roomId + " ... ");
             JSONObject room = rooms.get(roomId);
             JSONObject memberInfo = null;
+            logger.info("     the members in the room " + roomId + " contails:");
             for (Object memberO : room.getJSONArray("members")) {
                 JSONObject memberJ = (JSONObject) memberO;
+                logger.info("         " + memberJ.getString("username"));
                 if (StringUtils.equals(memberJ.getString("username"), username)) {
+                    logger.info("            find !");
                     inRoom = true;
                     memberInfo = memberJ;
                     break;
                 }
             }
             if (inRoom) {   // 在当前遍历到的房间中，判断房间中是否有对手
+                logger.info("     now find if there ara anyone other in room [" + roomId + "]");
                 if (room.getJSONArray("members").size() > 1) {
-                    rooms.get(roomId).getJSONArray("members").remove(memberInfo);
+                    logger.info("     wow ! there is ! then we will check if the player is escape ... ");
                     JSONObject msg = new JSONObject();
+                    if (roomHistory.get(roomId) != null && roomHistory.get(roomId).size() > 0) {
+                        logger.info("     roomHistory of the room [" + roomId + "] is not null & size > 0, is escape ! wow !");
+                        // 有游戏数据，判定为逃跑
+                        saveGameDate(roomId, memberInfo, false);
+                        logger.info("     after save data , let us delete the unused data ! cool !");
+                        deleteGameDate(roomId);
+                        msg.put("requireType", "escape");
+                    } else {
+                        logger.info("     it seems the player is not escape ... ");
+                        // 没有游戏数据，判定为正常离开
+                        msg.put("requireType", "leave");
+                    }
                     for (Object memberO : room.getJSONArray("members")) {
                         JSONObject memberJ = (JSONObject) memberO;
                         if (!StringUtils.equals(memberJ.getString("username"), username)) {
-                            if (roomHistory.get(roomId) != null && roomHistory.get(roomId).size() > 0) {
-                                // 有游戏数据，判定为逃跑
-                                msg.put("requireType", "escape");
-                            } else {
-                                // 没有游戏数据，判定为正常离开
-                                msg.put("requireType", "leave");
-                            }
+                            logger.info("     find the other one is [" + memberJ.getString("username") + "]");
+                            rooms.get(roomId).getJSONArray("members").remove(memberInfo);
                             msg.put("msg", rooms.get(roomId));
                             try {
                                 usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            break;
                         }
                     }
                 } else {
+                    logger.info("     holy ! there isn't . let us delete the gamadate of the room [" + roomId + "] !");
+                    deleteGameDate(roomId);
                     rooms.remove(roomId);
-                    roomHistory.remove(roomId);
-                    roomBoard.remove(roomId);
                 }
+                break;
             }
         }
-
+        logger.info("     finally , just remove the session & username bind info ... ");
         sessionToUsername.remove(this.session);
         usernameToSession.remove(username);
-
-        // TODO 判断用户状态，如果在游戏中失去连接判定为逃跑
+        webSocketSet.remove(this);
         logger.info("---> [" + this.session.getId() + "] close the connection.");
     }
 
@@ -162,7 +178,7 @@ public class HiramGamesWebSocket {
                         return;
                     }
                     String username = messageObj.getString("username");
-                    JSONObject theOnlyMember = (JSONObject)rooms.get(roomId).getJSONArray("members").get(0);
+                    JSONObject theOnlyMember = (JSONObject) rooms.get(roomId).getJSONArray("members").get(0);
                     if (!StringUtils.equals(theOnlyMember.getString("username"), username)) {
                         JSONObject newMember = new JSONObject();
                         newMember.put("username", username);
@@ -197,16 +213,19 @@ public class HiramGamesWebSocket {
                     JSONObject point = JSONObject.parseObject(messageObj.getString("point"));
 
                     // 是否允许落子判断
-
+                    if (rooms.get(roomId).getJSONArray("members").size() < 2) {
+                        return;
+                    }
 
                     // 记录开始时间
                     if (roomHistory.get(roomId) == null || roomHistory.get(roomId).size() <= 0) {
+                        logger.info("--->>> 无roomHistory数据，重新设置starttime");
                         rooms.get(roomId).put("starttime", new Date());
                     }
 
                     // 加入房间落子记录
                     JSONArray nowHistory;
-                    if (roomHistory.get(roomId)==null) {
+                    if (roomHistory.get(roomId) == null) {
                         nowHistory = new JSONArray();
                         roomHistory.put(roomId, nowHistory);
                     }
@@ -221,27 +240,10 @@ public class HiramGamesWebSocket {
                     if (think(x, y, roomBoard.get(roomId))) {
                         logger.info("--->>> 判断输赢完成 得出结果 " + point.getIntValue("color") + " 赢!");
                         logger.info("--->>> 游戏结束清除历史数据");
-                        logger.info("--- 保存记录 start");
-                        gameRecordService = applicationContext.getBean(GameRecordService.class);
-                        if (gameRecordService != null) {
-                            GameRecord gameRecord = new GameRecord();
-                            gameRecord.setGameId(rooms.get(roomId).getIntValue("gameid"));
-                            gameRecord.setStartTime(rooms.get(roomId).getDate("starttime"));
-                            gameRecord.setEndTime(new Date());
-                            ArrayList<String> playersId = new ArrayList<>();
-                            for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
-                                JSONObject memberJ = (JSONObject) memberO;
-                                playersId.add(memberJ.getString("id"));
-                            }
-                            gameRecord.setPlayersId(org.apache.tomcat.util.buf.StringUtils.join(playersId, ','));
-                            gameRecord.setWinnersId(messageObj.getString("id"));
-                            gameRecordService.savaRecord(gameRecord);
-                        }
-                        logger.info("--- 保存记录 end");
+                        // 保存数据
+                        saveGameDate(roomId, messageObj, true);
                         // 游戏结束删掉对局记录
-                        roomHistory.remove(roomId);
-                        roomBoard.remove(roomId);
-                        rooms.get(roomId).remove("starttime");
+                        deleteGameDate(roomId);
                         msg.put("result", point.getIntValue("color"));
                     }
 
@@ -293,19 +295,19 @@ public class HiramGamesWebSocket {
                         for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
                             JSONObject memberJ = (JSONObject) memberO;
                             if (StringUtils.equals(memberJ.getString("username"), messageObj.getString("username"))) {
-                                if (((JSONObject)history.get(history.size()-1)).getIntValue("color") == memberJ.getIntValue("color") && history.size() > 1) {
-                                    roomHistory.get(roomId).remove(roomHistory.get(roomId).size()-1);
+                                if (((JSONObject) history.get(history.size() - 1)).getIntValue("color") == memberJ.getIntValue("color") && history.size() > 1) {
+                                    roomHistory.get(roomId).remove(roomHistory.get(roomId).size() - 1);
                                 }
                             }
                         }
 
-                        roomHistory.get(roomId).remove(roomHistory.get(roomId).size()-1);
+                        roomHistory.get(roomId).remove(roomHistory.get(roomId).size() - 1);
                         msg.put("msg", "同意悔棋");
                     } else {
                         msg.put("msg", "拒绝悔棋");
                     }
                     msg.put("roomHistory", roomHistory.get(roomId));
-                    for(Object memberO : rooms.get(roomId).getJSONArray("members")) {
+                    for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
                         JSONObject memberJ = (JSONObject) memberO;
                         usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
                     }
@@ -320,9 +322,11 @@ public class HiramGamesWebSocket {
                         return;
                     }
 
+                    // 保存数据
+                    saveGameDate(roomId, messageObj, false);
+
                     // 游戏结束删掉对局记录
-                    roomHistory.remove(roomId);
-                    roomBoard.remove(roomId);
+                    deleteGameDate(roomId);
 
                     sendToOther(roomId, messageObj, msg);
                     break;
@@ -331,7 +335,6 @@ public class HiramGamesWebSocket {
                     break;
             }
         } catch (JSONException parseErr) {
-            // TODO 数据格式不正确Json化失败
             try {
                 msg.put("msg", parseErr.getMessage());
                 msg.put("type", "system");
@@ -356,7 +359,7 @@ public class HiramGamesWebSocket {
     }
 
     private void sendToOther(String roomId, JSONObject messageObj, JSONObject msg) {
-        for(Object memberO : rooms.get(roomId).getJSONArray("members")) {
+        for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
             JSONObject memberJ = (JSONObject) memberO;
             logger.info(memberJ.getString("username") + "," + messageObj.getString("username"));
             if (!StringUtils.equals(memberJ.getString("username"), messageObj.getString("username"))) {
@@ -369,9 +372,43 @@ public class HiramGamesWebSocket {
         }
     }
 
-    private boolean think (int xIndex, int yIndex, Integer[][] board) {
+    private void deleteGameDate(String roomId) {
+        roomHistory.remove(roomId);
+        roomBoard.remove(roomId);
+        rooms.get(roomId).remove("starttime");
+    }
+
+    private void saveGameDate(String roomId, JSONObject messageObj, boolean win) {
+        logger.info("--- 保存记录 start");
+        gameRecordService = applicationContext.getBean(GameRecordService.class);
+        if (gameRecordService != null) {
+            GameRecord gameRecord = new GameRecord();
+            gameRecord.setGameId(rooms.get(roomId).getIntValue("gameid"));
+            gameRecord.setStartTime(rooms.get(roomId).getDate("starttime"));
+            gameRecord.setEndTime(new Date());
+            ArrayList<String> playersId = new ArrayList<>();
+            ArrayList<String> windersId = new ArrayList<>();
+            for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
+                JSONObject memberJ = (JSONObject) memberO;
+                playersId.add(memberJ.getString("id"));
+                if (win) {
+                    windersId.add(messageObj.getString("id"));
+                } else {
+                    if (!StringUtils.equals(memberJ.getString("id"), messageObj.getString("id"))) {
+                        windersId.add(memberJ.getString("id"));
+                    }
+                }
+            }
+            gameRecord.setPlayersId(org.apache.tomcat.util.buf.StringUtils.join(playersId, ','));
+            gameRecord.setWinnersId(org.apache.tomcat.util.buf.StringUtils.join(windersId, ','));
+            gameRecordService.savaRecord(gameRecord);
+        }
+        logger.info("--- 保存记录 end");
+    }
+
+    private boolean think(int xIndex, int yIndex, Integer[][] board) {
         int count = 1;
-        for(int x=xIndex-1;x>=0;x--){
+        for (int x = xIndex - 1; x >= 0; x--) {
             if (isEqual(x, yIndex, xIndex, yIndex, board)) {
                 count++;
             } else {
@@ -379,77 +416,78 @@ public class HiramGamesWebSocket {
             }
         }
         int BOARD_SIZE = 15;
-        for(int x = xIndex+1; x<= BOARD_SIZE; x++){
+        for (int x = xIndex + 1; x <= BOARD_SIZE; x++) {
             if (isEqual(x, yIndex, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        if (count>=5) {
+        if (count >= 5) {
             return true;
-        }else{
+        } else {
             count = 1;
         }
-        for(int y=yIndex-1;y>=0;y--){
+        for (int y = yIndex - 1; y >= 0; y--) {
             if (isEqual(xIndex, y, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        for(int y = yIndex+1; y<= BOARD_SIZE; y++){
+        for (int y = yIndex + 1; y <= BOARD_SIZE; y++) {
             if (isEqual(xIndex, y, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        if (count>=5) {
+        if (count >= 5) {
             return true;
-        }else{
+        } else {
             count = 1;
         }
-        for(int x = xIndex+1, y = yIndex-1; y>=0&&x<= BOARD_SIZE; x++,y--){
+        for (int x = xIndex + 1, y = yIndex - 1; y >= 0 && x <= BOARD_SIZE; x++, y--) {
             if (isEqual(x, y, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        for(int x = xIndex-1, y = yIndex+1; y<= BOARD_SIZE &&x>=0; x--,y++){
+        for (int x = xIndex - 1, y = yIndex + 1; y <= BOARD_SIZE && x >= 0; x--, y++) {
             if (isEqual(x, y, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        if (count>=5) {
+        if (count >= 5) {
             return true;
-        }else{
+        } else {
             count = 1;
         }
-        for(int x=xIndex-1,y=yIndex-1;y>=0&&x>=0;x--,y--){
+        for (int x = xIndex - 1, y = yIndex - 1; y >= 0 && x >= 0; x--, y--) {
             if (isEqual(x, y, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        for(int x = xIndex+1, y = yIndex+1; y<= BOARD_SIZE &&x<= BOARD_SIZE; x++,y++){
+        for (int x = xIndex + 1, y = yIndex + 1; y <= BOARD_SIZE && x <= BOARD_SIZE; x++, y++) {
             if (isEqual(x, y, xIndex, yIndex, board)) {
                 count++;
             } else {
                 break;
             }
         }
-        if (count>=5) {
+        if (count >= 5) {
             return true;
-        }else{
+        } else {
             count = 1;
         }
         return false;
     }
+
     private boolean isEqual(int x, int y, int xIndex, int yIndex, Integer[][] board) {
         return board[x][y] != null && Objects.equals(board[x][y], board[xIndex][yIndex]);
     }
