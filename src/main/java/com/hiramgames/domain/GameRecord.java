@@ -1,6 +1,5 @@
 package com.hiramgames.domain;
 
-import javax.xml.crypto.Data;
 import java.util.Date;
 
 public class GameRecord {
@@ -9,7 +8,7 @@ public class GameRecord {
     private String playersId;
     private String winnersId;
     private Date startTime;
-    private Data endTime;
+    private Date endTime;
 
     public int getId() {
         return id;
@@ -51,11 +50,23 @@ public class GameRecord {
         this.startTime = startTime;
     }
 
-    public Data getEndTime() {
+    public Date getEndTime() {
         return endTime;
     }
 
-    public void setEndTime(Data endTime) {
+    public void setEndTime(Date endTime) {
         this.endTime = endTime;
+    }
+
+    @Override
+    public String toString() {
+        return "GameRecord{" +
+                "id=" + id +
+                ", gameId=" + gameId +
+                ", playersId='" + playersId + '\'' +
+                ", winnersId='" + winnersId + '\'' +
+                ", startTime=" + startTime +
+                ", endTime=" + endTime +
+                '}';
     }
 }

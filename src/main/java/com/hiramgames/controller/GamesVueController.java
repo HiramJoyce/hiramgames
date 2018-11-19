@@ -55,17 +55,20 @@ public class GamesVueController {
         }
         String username = redisValue.split(",")[0];
         String nickname = redisValue.split(",")[1];
+        int id = Integer.parseInt(redisValue.split(",")[2]);
         String newRoomId = username + token.substring(0, 5);
         JSONArray members = new JSONArray();
         JSONObject member = new JSONObject();
         member.put("nickname", nickname);
         member.put("username", username);
         member.put("color", 0);
+        member.put("id", id);
         members.add(member);
         JSONObject roomInfo = new JSONObject();
         roomInfo.put("id", newRoomId);
         roomInfo.put("members", members);
         roomInfo.put("name", roomname);
+        roomInfo.put("gameid", 1);  // 五子棋
         HiramGamesWebSocket.rooms.put(newRoomId, roomInfo);
         return ResultUtil.success(newRoomId);
     }

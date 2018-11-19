@@ -45,12 +45,13 @@ public class PlayerService {
         }
         if (StringUtils.equals(player.getPassword(), EncryptUtil.SHA512(EncryptUtil.SHA512(password) + player.getUsername()))) {
             String token = TokenUtil.generateToken(player.getUsername());
-            redisService.set(token, player.getUsername() + "," + player.getNickname(), 60 * 10L);
+            redisService.set(token, player.getUsername() + "," + player.getNickname() + "," + player.getId(), 60 * 10L);
             JSONObject result = new JSONObject();
             result.put("username", player.getUsername());
             result.put("nickname", player.getNickname());
             result.put("email", player.getEmail());
             result.put("token", token);
+            result.put("id", player.getId());
             return ResultUtil.success(result);
         }
         return ResultUtil.error(ResultEnum.ERROR);

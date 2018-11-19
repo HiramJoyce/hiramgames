@@ -4,18 +4,19 @@ import com.alibaba.druid.util.StringUtils;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
+import com.hiramgames.domain.GameRecord;
+import com.hiramgames.service.GameRecordService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 @ServerEndpoint(value = "/hiramgames")
@@ -48,6 +49,14 @@ public class HiramGamesWebSocket {
     // 房间不存在后应根据roomId删除roomBoard中相应的数据
     private static Map<String, Integer[][]> roomBoard = new LinkedHashMap<>();
 
+    private GameRecordService gameRecordService;
+
+    private static ApplicationContext applicationContext;
+
+    public static void setApplicationContext(ApplicationContext context) {
+        applicationContext = context;
+    }
+
     @OnOpen
     public void onOpen(Session session) {
         this.session = session;
@@ -61,15 +70,6 @@ public class HiramGamesWebSocket {
             sendMessage(msg);
         } catch (IOException IOErr) {
             IOErr.printStackTrace();
-        }
-    }
-
-    private void getRoomsJSONArray(JSONArray roomsJA) {
-        for (String roomName: rooms.keySet()) {
-            JSONObject roomInfo = new JSONObject();
-            roomInfo.put("name", roomName);
-            roomInfo.put("members", rooms.get(roomName));
-            roomsJA.add(roomInfo);
         }
     }
 
@@ -168,6 +168,7 @@ public class HiramGamesWebSocket {
                         newMember.put("username", username);
                         newMember.put("nickname", messageObj.getString("nickname"));
                         newMember.put("color", theOnlyMember.getIntValue("color") == 1 ? 0 : 1);
+                        newMember.put("id", messageObj.getString("id"));
                         rooms.get(roomId).getJSONArray("members").add(newMember);
                     }
                     msg.put("requireType", messageObj.getString("requireType"));
@@ -197,6 +198,12 @@ public class HiramGamesWebSocket {
 
                     // 是否允许落子判断
 
+
+                    // 记录开始时间
+                    if (roomHistory.get(roomId) == null || roomHistory.get(roomId).size() <= 0) {
+                        rooms.get(roomId).put("starttime", new Date());
+                    }
+
                     // 加入房间落子记录
                     JSONArray nowHistory;
                     if (roomHistory.get(roomId)==null) {
@@ -214,9 +221,27 @@ public class HiramGamesWebSocket {
                     if (think(x, y, roomBoard.get(roomId))) {
                         logger.info("--->>> 判断输赢完成 得出结果 " + point.getIntValue("color") + " 赢!");
                         logger.info("--->>> 游戏结束清除历史数据");
+                        logger.info("--- 保存记录 start");
+                        gameRecordService = applicationContext.getBean(GameRecordService.class);
+                        if (gameRecordService != null) {
+                            GameRecord gameRecord = new GameRecord();
+                            gameRecord.setGameId(rooms.get(roomId).getIntValue("gameid"));
+                            gameRecord.setStartTime(rooms.get(roomId).getDate("starttime"));
+                            gameRecord.setEndTime(new Date());
+                            ArrayList<String> playersId = new ArrayList<>();
+                            for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
+                                JSONObject memberJ = (JSONObject) memberO;
+                                playersId.add(memberJ.getString("id"));
+                            }
+                            gameRecord.setPlayersId(org.apache.tomcat.util.buf.StringUtils.join(playersId, ','));
+                            gameRecord.setWinnersId(messageObj.getString("id"));
+                            gameRecordService.savaRecord(gameRecord);
+                        }
+                        logger.info("--- 保存记录 end");
                         // 游戏结束删掉对局记录
                         roomHistory.remove(roomId);
                         roomBoard.remove(roomId);
+                        rooms.get(roomId).remove("starttime");
                         msg.put("result", point.getIntValue("color"));
                     }
 
