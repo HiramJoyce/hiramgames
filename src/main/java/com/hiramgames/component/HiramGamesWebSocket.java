@@ -218,7 +218,7 @@ public class HiramGamesWebSocket {
                     }
 
                     // 记录开始时间
-                    if (roomHistory.get(roomId) == null || roomHistory.get(roomId).size() <= 0) {
+                    if (roomHistory == null || roomHistory.get(roomId) == null || roomHistory.get(roomId).size() <= 0) {
                         logger.info("--->>> 无roomHistory数据，重新设置starttime");
                         rooms.get(roomId).put("starttime", new Date());
                     }
