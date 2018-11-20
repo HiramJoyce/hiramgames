@@ -117,6 +117,10 @@ public class HiramGamesWebSocket {
                         // 没有游戏数据，判定为正常离开
                         msg.put("requireType", "leave");
                     }
+                    // 更改剩余的人状态为未准备好
+                    for (int i = 0; i < rooms.get(roomId).getJSONArray("members").size(); i++) {
+                        ((JSONObject) rooms.get(roomId).getJSONArray("members").get(i)).put("ready", false);
+                    }
                     for (Object memberO : room.getJSONArray("members")) {
                         JSONObject memberJ = (JSONObject) memberO;
                         if (!StringUtils.equals(memberJ.getString("username"), username)) {
@@ -202,6 +206,23 @@ public class HiramGamesWebSocket {
                         usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
                     }
                     break;
+                case "ready":
+                    // 设置准备状态
+                    logger.info("movePiece!!!");
+                    roomId = messageObj.getString("roomId");
+                    username = messageObj.getString("username");
+                    boolean ready = messageObj.getBoolean("ready");
+                    msg.put("requireType", messageObj.getString("requireType"));
+                    msg.put("type", "system");
+                    msg.put("time", sdf.format(new Date()));
+                    for (int i = 0; i < rooms.get(roomId).getJSONArray("members").size(); i++) {
+                        JSONObject memberJ = (JSONObject) rooms.get(roomId).getJSONArray("members").get(i);
+                        if (StringUtils.equals(memberJ.getString("username"), username)) {
+                            ((JSONObject) rooms.get(roomId).getJSONArray("members").get(i)).put("ready", ready);
+                            break;
+                        }
+                    }
+                    break;
                 case "movePiece":
                     logger.info("movePiece!!!");
                     roomId = messageObj.getString("roomId");
@@ -215,14 +236,19 @@ public class HiramGamesWebSocket {
                         return;
                     }
 
+                    // 如果有人没准备好不允许落子
+                    for (int i = 0; i < rooms.get(roomId).getJSONArray("members").size(); i++) {
+                        JSONObject memberJ = (JSONObject) rooms.get(roomId).getJSONArray("members").get(i);
+                        if (!memberJ.getBoolean("ready")) {
+                            return;
+                        }
+                    }
+
                     // 记录开始时间
                     if (roomHistory == null || roomHistory.get(roomId) == null || roomHistory.get(roomId).size() <= 0) {
                         logger.info("--->>> 无roomHistory数据，重新设置starttime");
                         rooms.get(roomId).put("starttime", new Date());
                     }
-
-                    // TODO 判断ready
-
 
                     // 加入房间落子记录
                     JSONArray nowHistory;
@@ -246,6 +272,10 @@ public class HiramGamesWebSocket {
                         // 游戏结束删掉对局记录
                         deleteGameDate(roomId);
                         msg.put("result", point.getIntValue("color"));
+                        // 更改状态为未准备好
+                        for (int i = 0; i < rooms.get(roomId).getJSONArray("members").size(); i++) {
+                            ((JSONObject) rooms.get(roomId).getJSONArray("members").get(i)).put("ready", false);
+                        }
                     }
 
                     JSONObject room = rooms.get(roomId);
@@ -328,6 +358,11 @@ public class HiramGamesWebSocket {
 
                     // 游戏结束删掉对局记录
                     deleteGameDate(roomId);
+
+                    // 更改状态为未准备好
+                    for (int i = 0; i < rooms.get(roomId).getJSONArray("members").size(); i++) {
+                        ((JSONObject) rooms.get(roomId).getJSONArray("members").get(i)).put("ready", false);
+                    }
 
                     sendToOther(roomId, messageObj, msg);
                     break;
