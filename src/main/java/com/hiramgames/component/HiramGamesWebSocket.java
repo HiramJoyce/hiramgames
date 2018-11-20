@@ -182,6 +182,7 @@ public class HiramGamesWebSocket {
                         newMember.put("nickname", messageObj.getString("nickname"));
                         newMember.put("color", theOnlyMember.getIntValue("color") == 1 ? 0 : 1);
                         newMember.put("id", messageObj.getString("id"));
+                        newMember.put("ready", false);
                         rooms.get(roomId).getJSONArray("members").add(newMember);
                     }
                     msg.put("requireType", messageObj.getString("requireType"));
@@ -219,6 +220,9 @@ public class HiramGamesWebSocket {
                         logger.info("--->>> 无roomHistory数据，重新设置starttime");
                         rooms.get(roomId).put("starttime", new Date());
                     }
+
+                    // TODO 判断ready
+
 
                     // 加入房间落子记录
                     JSONArray nowHistory;
