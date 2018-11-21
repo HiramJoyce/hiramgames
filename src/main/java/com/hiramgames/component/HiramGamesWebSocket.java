@@ -185,7 +185,7 @@ public class HiramGamesWebSocket {
                         newMember.put("username", username);
                         newMember.put("nickname", messageObj.getString("nickname"));
                         newMember.put("color", theOnlyMember.getIntValue("color") == 1 ? 0 : 1);
-                        newMember.put("id", messageObj.getString("id"));
+                        newMember.put("id", messageObj.getIntValue("id"));
                         newMember.put("ready", false);
                         rooms.get(roomId).getJSONArray("members").add(newMember);
                     }
@@ -208,7 +208,7 @@ public class HiramGamesWebSocket {
                     break;
                 case "ready":
                     // 设置准备状态
-                    logger.info("movePiece!!!");
+                    logger.info("ready!!!");
                     roomId = messageObj.getString("roomId");
                     username = messageObj.getString("username");
                     boolean ready = messageObj.getBoolean("ready");
@@ -221,6 +221,11 @@ public class HiramGamesWebSocket {
                             ((JSONObject) rooms.get(roomId).getJSONArray("members").get(i)).put("ready", ready);
                             break;
                         }
+                    }
+                    for (Object memberO : rooms.get(roomId).getJSONArray("members")) {
+                        JSONObject memberJ = (JSONObject) memberO;
+                        msg.put("msg", rooms.get(roomId));
+                        usernameToSession.get(memberJ.getString("username")).getBasicRemote().sendText(msg.toJSONString());
                     }
                     break;
                 case "movePiece":
