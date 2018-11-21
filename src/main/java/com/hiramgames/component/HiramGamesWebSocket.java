@@ -240,6 +240,8 @@ public class HiramGamesWebSocket {
                     for (int i = 0; i < rooms.get(roomId).getJSONArray("members").size(); i++) {
                         JSONObject memberJ = (JSONObject) rooms.get(roomId).getJSONArray("members").get(i);
                         if (!memberJ.getBoolean("ready")) {
+                            msg.put("forbid", 1);
+                            sendMessage(msg);
                             return;
                         }
                     }
